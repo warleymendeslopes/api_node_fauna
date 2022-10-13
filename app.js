@@ -12,8 +12,10 @@ var faunadb = require('faunadb'),
 q = faunadb.query;
 var serverClient = new faunadb.Client({ secret: 'fnAExgCAMGACUeL0NW5U7fn2oAKNq3_4yLJWQgP8' });
 
-
-app.get('/', async function(req, res){
+/**
+ * Realizar login
+ */
+app.get('/login', async function(req, res){
   let query = await serverClient.query(
     q.Map(
       q.Paginate(
@@ -27,7 +29,7 @@ app.get('/', async function(req, res){
   )
   var dados = query.data
   if(dados.length === 0){
-    res.status(200).json({Erro: "usuario ou senha invalido" })
+    res.status(200).json({Erro: "usuario ou senha invalido 123" })
   }
   dados.forEach(element => {
     if(element.data.User == req.body.user){
@@ -44,13 +46,58 @@ app.get('/', async function(req, res){
     }
   }
   );
-
-
 })
 
+/**
+ * Cadastrar usuario no banco de dados
+ */
+app.post('/create-login', async function(req, res){
+  let query = await serverClient.query(
+    q.Map(
+      q.Paginate(
+        q.Match(q.Index("login"), req.body.user)
+      ),
+      q.Lambda(
+        "person",
+        q.Get(q.Var("person"))
+      )
+    )
+  )
+  var dados = query.data
+  if(dados.length === 0){
+    var tokenapi = req.body.user
+    const salt = bcrypt.genSaltSync(5);
+    const hash = bcrypt.hashSync(tokenapi, salt);
+
+    const saltpass = bcrypt.genSaltSync(10);
+    const passworscript = bcrypt.hashSync(req.body.password, saltpass);
 
 
-
+    const date = new Date();
+      serverClient.query(
+            q.Create(
+            q.Collection('Authentication'),
+            { data: { 
+                Name: req.body.name,
+                User: req.body.user,
+                Pass: passworscript,
+                Email: req.body.email,
+                Cpf: req.body.cpf,
+                AcessTokenApi: hash,
+                Birth: req.body.birth,
+                CreateData: date.toISOString()
+              } },
+            )
+      )
+      .then(function(){
+        res.status(200).json({data: req.body, status: 200, message: "Usuario cadastrado com sucesso"});
+      }).catch(function(){
+          res.status(422).json({status: 422, message: "Erro ao cadastrar os dados no banco"});
+      })
+  }else{
+    res.status(200).json({Erro: "Usuario ja Existente" })
+  }
+})
 
 
 
@@ -143,7 +190,7 @@ app.listen(8080);
 
 
 /*
-]criptografar a senha 
+criptografar a senha 
 
   const password = 'P@ssword123@';
   const salt = bcrypt.genSaltSync(10);
