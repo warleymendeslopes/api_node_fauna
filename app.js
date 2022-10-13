@@ -101,6 +101,108 @@ app.post('/create-login', async function(req, res){
 
 
 
+/**
+ * Funcao cadastra conteudo para um determidado cliente
+ * para isso deve ser informado no cabecalho da requicisao (HEADER) 0 token de API para que o mesmo 
+ * seja indentificado dentro da API 
+ * {
+ *   "AcessTokenApi": "1213456789",
+ * }
+ */
+app.post('/create/leades', async function(req, res){
+  if(req.headers.acesstokenapi == null){
+    res.status(203).json({Error: "Obrigatorio AcessTokenApi ser passado como parametro no Headers"});
+  }else{
+    let query = await serverClient.query(
+      q.Map(
+        q.Paginate(
+          q.Match(q.Index("verify_AcessTokenApi_user"), req.headers.acesstokenapi)
+        ),
+        q.Lambda(
+          "person",
+          q.Get(q.Var("person"))
+        )
+      )
+    )
+    var dados = query.data
+    const date = new Date();
+    if(dados.length === 0){
+      res.status(203).json({Error: "AcessTokenApi Invalido"});
+    }else{
+      dados.forEach(content => {
+          serverClient.query(
+                q.Create(
+                q.Collection('Leads'),
+                { data: { 
+                    Name: req.body.name,
+                    Email: req.body.email,
+                    Telphne: req.body.telphne,
+                    Birth: req.body.birth,
+                    Identifier:{
+                      Name: content.data.Name,
+                      Cpf: content.data.Cpf,
+                      Email: content.data.Email
+                    },
+                    CreateData: date.toISOString()
+                    }
+                  },
+                )
+          ).then(function(){
+            res.status(200).json({data: req.body, status: 200, message: "Dados cadastrado"});
+          }).catch(function(){
+            res.status(422).json({status: 422, message: "Erro ao cadastrar os dados no banco"});
+          })
+    })
+    }
+  }
+})
+
+
+/**
+ * Rota busca todos os Documentos de um determinado CPF,
+ * sendo obrigatorio a passar o AcessTokenApi como parametro no Headers, 
+ * so assim conseguimos indentificar o cpf correto 
+ * {
+ *   "AcessTokenApi": "1213456789",
+ * }
+ */
+
+app.get('/list/leads', async function(req, res){
+  if(req.headers.acesstokenapi == null){
+    res.status(203).json({Error: "Obrigatorio AcessTokenApi ser passado como parametro no Headers"});
+  }else{
+    let query = await serverClient.query(
+      q.Map(
+        q.Paginate(
+          q.Match(q.Index("verify_AcessTokenApi_user"), req.headers.acesstokenapi)
+        ),
+        q.Lambda(
+          "person",
+          q.Get(q.Var("person"))
+        )
+      )
+    )
+    var dados = query.data
+    if(dados.length === 0){
+      res.status(203).json({Error: "AcessTokenApi Invalido"});
+    }else{
+    let queryleads = await serverClient.query(
+      q.Map(
+        q.Paginate(
+          q.Match(q.Index("Leades_por_users"), dados[0].data.Cpf)
+        ),
+        q.Lambda(
+          "person",
+          q.Get(q.Var("person"))
+        )
+      )
+    )
+    var ListLeads = queryleads.data
+    res.status(203).json(ListLeads);
+    }
+  }
+})
+
 
 
 /*
